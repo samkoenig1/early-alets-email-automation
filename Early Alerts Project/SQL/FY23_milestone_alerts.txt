@@ -1,0 +1,106 @@
+----- get order of milestones, names, and url ---
+
+with milestones_raw as (select 
+da.k_course as "k_course",
+split_part(dc.sis_course_id,'_',1) as "course_type",
+dc.cohort_year,
+da.assignment_name,
+da.k_assignment,
+da.html_url, 
+da.assignment_group_position,
+sum((case when da.assignment_group_position > 0 then 1 else 0 end)) over (partition by da.k_course order by da.assignment_group_position) as "order",
+split_part(da.assignment_name, ' Milestone Module',1) as "milestone_name"
+
+from prod_wh.dim_assignment da 
+	inner join prod_wh.dim_course dc 
+		on dc.k_course = da.k_course
+
+where  dc.school_year = 2023
+and da.is_published = true
+and da.k_course != 517
+and da.k_course != 598
+and da.k_course != 599
+and da.assignment_name ilike '%milestone module%'),
+
+
+
+---- get all data on assignment completion summarized by total number of submissions, students and percent completion for each assignment ---
+assignment_completion as (select 
+da.k_course as "k_course",
+da.assignment_name,
+da.k_assignment,
+da.html_url,
+sum(case when fas.workflow_state = 'unsubmitted' then 0
+when fas.workflow_state = 'submitted' then 1
+when fas.workflow_state = 'graded' then 1
+else 0 end) as "submitted_numeric",
+count(distinct fas.k_user) as "number_students",
+--function to calculate the percent submitted and round it to the nearest whole number--
+round((cast(sum(case when fas.workflow_state = 'unsubmitted' then 0
+when fas.workflow_state = 'submitted' then 1
+when fas.workflow_state = 'graded' then 1
+else 0 end) as float) / count(distinct fas.k_user) *100))  as "percent_submitted",
+--function to get all the student names who submitted the assignment. Added function to only show First name last initial ---
+string_agg(case when (fas.workflow_state = 'submitted' or fas.workflow_state = 'graded') then concat(split_part(du.user_name, ' ',1), ' ', left(split_part(du.user_name, ' ',2),1)) else null end, ', ') as "student_submitted_names",
+---function to get student names who submitted in the last week ---
+string_agg(case when current_date - fas.submitted_at <=7 then concat(split_part(du.user_name, ' ',1), ' ', left(split_part(du.user_name, ' ',2),1)) else null end, ', ') as "submitted_in_last_7_names",
+--function to get all the student names who didn't submit the assignment.  Added function to only show First name last initial ---
+string_agg(case when (fas.workflow_state = 'unsubmitted') then concat(split_part(du.user_name, ' ',1), ' ', left(split_part(du.user_name, ' ',2),1)) else null end, ', ') as "missing_student_names"
+
+from prod_wh.dim_assignment da 
+	inner join prod_wh.fct_assignment_submissions fas 
+		on fas.k_assignment = da.k_assignment
+	inner join prod_wh.dim_course dc 
+		on dc.k_course = da.k_course
+	inner join prod_wh.dim_user du 
+		on du.k_user  = fas.k_user 
+
+where  dc.school_year = 2023
+and da.is_published = true
+and da.k_course != 517
+and da.k_course != 598
+and da.k_course != 599
+and da.assignment_name ilike '%milestone module%'
+---Remove any test users --- 
+and du.user_name not ilike 'Test%'
+
+group by da.k_course,
+da.assignment_name,
+da.k_assignment,
+da.html_url
+
+order by da.k_course)
+
+
+----- filter out only milestones that are the n milestone ---
+select 
+mra.k_course,
+mra.cohort_year,
+mra.course_type,
+mra.milestone_name,
+--- link to the actual milestone assignment --- 
+mra.html_url as "milestone_link",
+-- description of what the milestone will entail (TBD) --- 
+null as "milestone_instructions",
+-- when no students submit, this is the message ---
+case when aco.submitted_numeric = 0  then concat('Looks like no students have started ', mra.milestone_name, ' yet. If your students have engaged in this milestone outside of canvas, that is okay, you can see and change the status of your students progress on all their milestones in the gradebook here.') 
+--- when less than 3 students submit--
+when aco.submitted_numeric <=3 then concat('Looks like you have had ',aco.submitted_numeric, ' submission for this milestone so far. Make sure to review and celebrate ', aco.student_submitted_names, ' for completing their work. You can see and change the status of your students progress on all their milestones in the gradebook here.' )
+--- when there are more than 3 submissions but less than 70% congratulate the students who submitted in the last week --- 
+when aco.submitted_numeric >3 and aco.percent_submitted < 70 then concat('Looks like you have ',aco.submitted_numeric, ' submission for this milestone so far. Make sure to review and celebrate the work that ', aco.submitted_in_last_7_names, ' submitted in the last week. You can see and change the status of your students progress on all their milestones in the gradebook here.' )
+-- when over 70% of students complete their milestones ---
+when aco.percent_submitted >= 70 and aco.percent_submitted < 90 then concat('Congrats on getting',aco.percent_submitted, '% of your students to complete their ', mra.milestone_name,' milestone! This is a huge accomplishment toward your students being on track by the end of the year. You can see which students are missing their assignment in the gradebook here')
+when aco.percent_submitted >=90 then concat('Congrats on getting',aco.percent_submitted, 'of your students to complete their ', mra.milestone_name,' milestone! Looks like only ', aco.missing_student_names, ' are missing their assignment. You can see all of your students progress on their milestones here')
+else null end as "milestone_alert",
+concat('https://onegoal.instructure.com/courses/',aco.k_course,'/gradebook') as "gradebook_link"
+
+
+from milestones_raw mra
+	left join assignment_completion aco
+		on aco.k_assignment = mra.k_assignment
+
+		
+----- Update milestone number based on the time of the year (October = 1, November = 2, etc) ---
+where mra.order = 1 
+
+

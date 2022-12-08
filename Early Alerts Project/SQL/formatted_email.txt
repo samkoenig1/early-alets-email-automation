@@ -1,0 +1,71 @@
+
+/*query to get each teachers' site director wide*/
+WITH site_director_joined AS (
+         SELECT (t_users.k_user) AS k_user,
+            (d_users.user_name) AS site_director_name,
+            max(d_users.login_id) AS site_director_email,
+            (t_users.user_name) AS teacher_name
+            
+            FROM prod_wh.dim_enrollment directors
+             JOIN prod_wh.dim_enrollment teachers USING (k_course, k_course_section)
+             JOIN prod_wh.dim_user t_users ON teachers.k_user = t_users.k_user
+             JOIN prod_wh.dim_user d_users ON directors.k_user = d_users.k_user
+          
+           WHERE teachers.enrollment_role = 'TeacherEnrollment'::text 
+          AND directors.enrollment_role = 'Site Director'::text 
+          AND (teachers.enrollment_state = ANY (ARRAY['active'::text, 'invited'::text]))
+          AND (directors.enrollment_state = ANY (ARRAY['active'::text, 'invited'::text]))
+          
+          group by  (t_users.k_user), (d_users.user_name),(t_users.user_name)
+    )
+
+
+
+/*query used as the basis for the email. This table format should exactly match the google sheet here
+ 
+https://docs.google.com/spreadsheets/d/1CO9o-okD4zdCP6SAXCOnVUKzcHTxNOSNkdhNV7w8cqM/edit#gid=0
+ 
+ */ 
+
+(select  
+dc.k_course,
+date(timezone('EST', now())) as "date",
+du.login_id as "email", 
+string_agg(sdj.site_director_email,',') as "site_director_email",
+concat('OneGoal ', dc.cohort_year ,' Weekly Insight') as "subject",
+split_part(du.user_name, ' ', 1) as "pd_name", 
+'Here are your weekly insights.' as "intro_note",
+null as "advising_alert",
+null as "advising_url", 
+null as "milestone_month",
+null as "milestone_lesson_url",
+
+null as "milestone_instructions", 
+
+null as "milestone_alert", 
+null as "milestone_url",
+'Let us know if you have any questions!' as "closing_note",
+concat(max(du.k_user),'_',date(timezone('EST', now()))) as "key"
+
+from prod_wh.dim_enrollment de 
+	inner join prod_wh.dim_course dc 
+		on de.k_course = dc.k_course
+	inner join prod_wh.dim_user du 
+		on du.k_user = de.k_user
+	left join site_director_joined sdj
+		on sdj.k_user = du.k_user
+
+		
+
+where de.enrollment_role = 'TeacherEnrollment' 
+and dc.course_code not ilike 'OneGoal PD Course 21-22 [DPP]'
+and dc.course_code not ilike 'test%'
+and dc.course_name not ilike '%Test%'
+and dc.course_name not like '%OneGoal Y1 - Illinois State Board of Education'
+and dc.k_course != 1812 and dc.k_course !=517  and dc.k_course != 1774 and dc.k_course != 1775
+and dc.school_year =2023
+
+
+group by du.user_name, du.login_id, split_part(dc.course_name, ' - ', 2), dc.end_at,dc.k_course, dc.cohort_year)
+
+

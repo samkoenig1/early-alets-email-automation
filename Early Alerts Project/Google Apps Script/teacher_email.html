@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+ <html>
+      <head>
+        <base target="_top">
+        <style>
+            div {
+              font-family: Lato, sans-serif;
+            }
+
+            li {
+              margin-right: 20%;
+            }
+
+          </style>
+      </head>
+      <body>
+
+          <div>
+<!--Image to track open status  -->
+<img src="https://google-analytics.com/collect?v=1&tid=UA-174467272-1&cid=12345678&t=event&ec=email&ea=open&el=<?=alert.pd_email?>&cs=early_alert&cm=email" width="0" height="0" class ="hidden">
+<table style="width: 70%;">
+	<tbody>
+		<tr>
+			<td style="width: 100.0000%;">
+				<p>Hi <?= alert.pd_name ?> -</p>
+				<p> <?= alert.intro_note ?></p>
+				<h2><span style="color: #ff6600;"><strong>Milestone Update:</strong></span></h2>
+				<p><span style="color: #000000;">The milestone of focus for this month is <a href="<?= alert.milestone_lesson_url ?>" target="_blank"><?= alert.milestone ?></a>. <?= alert.milestone_instructions ?> </span></p>
+				<p><span style="color: #000000;"><?= alert.milestone_alert ?><a href="<?= alert.milestone_checklist_url ?>" target="_blank"><?= alert.milestone_alert_word ?></a></span></p>
+				<h2><span style="color: #00ffff;"><strong>Advising:</strong></span></h2>
+				<p><?= alert.advising_alert ?> <a href="<?= alert.advising_link ?>" target="_blank"><?= alert.advising_link_word ?></a></p>
+				<p><?= alert.closing_note ?></p>
+				<p>-OneGoal Team</p>
+				<p><img class="center" src="https://drive.google.com/uc?export=download&amp;id=1b4ouMmJ3w2g4NRbsElTjUvqoxXEXvMVr" alt="" width="200px" /></p>
+				<p style="text-align: center;">&nbsp;</p>
+			</td>
+		</tr>
+	</tbody>
+</table>
+
+      </div>
+      </body>
+  </html>

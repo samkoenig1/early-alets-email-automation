@@ -1,0 +1,115 @@
+-- capture a list of all the program directors in our model in FY23--- 
+
+with program_director_view as (select distinct 
+	du.k_user,
+	du.user_name,
+	split_part(dc.course_name, ' - ', 2) as "school_name",
+	dc.k_course,
+	dc.cohort_year 
+	
+	
+from prod_wh.dim_user du 
+	inner join prod_wh.dim_enrollment de 
+		on de.k_user  = du.k_user 
+	inner join prod_wh.dim_course dc 
+		on dc.k_course = de.k_course 
+
+
+-- filter out any courses that aren't live ---
+where de.enrollment_role = 'TeacherEnrollment' 
+and dc.course_code not ilike 'OneGoal PD Course 21-22 [DPP]'
+and dc.course_code not ilike 'test%'
+and dc.course_name not ilike '%Test%'
+and dc.course_name not like '%OneGoal Y1 - Illinois State Board of Education'
+and dc.k_course != 1812 and dc.k_course !=517  and dc.k_course != 1774 and dc.k_course != 1775
+and dc.school_year =2023),
+
+
+---- get view for all students ---
+
+student_view as (select distinct 
+	du.k_user, 
+	split_part(du.user_name, ' ',1) as "first_name",
+	left(split_part(du.user_name, ' ',2),1) as "last_initial",
+	du.user_name,
+	split_part(dc.course_name, ' - ', 2) as "school_name",
+	dc.k_course,
+	dc.cohort_year 
+	
+	
+from prod_wh.dim_user du 
+	inner join prod_wh.dim_enrollment de 
+		on de.k_user  = du.k_user 
+	inner join prod_wh.dim_course dc 
+		on dc.k_course = de.k_course
+
+
+where de.enrollment_role = 'StudentEnrollment' 
+and dc.course_code not ilike 'OneGoal PD Course 21-22 [DPP]'
+and dc.course_code not ilike 'test%'
+and dc.course_name not ilike '%Test%'
+and dc.course_name not like '%OneGoal Y1 - Illinois State Board of Education'
+and dc.k_course != 1812 and dc.k_course !=517  and dc.k_course != 1774 and dc.k_course != 1775
+and dc.school_year =2023),
+
+
+---- get all data on advising by student ---
+
+advising_data as (select dfs.k_form_submission,
+split_part(du.user_name, ' ',1) as "first_name",
+left(split_part(du.user_name, ' ',2),1) as "last_initial",
+dfs.submitted_at,
+dff.form_name, 
+dfs.k_user,
+dff.k_form,
+dfs.is_latest_submission,
+dc.k_course
+
+
+
+from prod_wh.dim_fa_forms dff 
+	inner join prod_wh.dim_fa_submissions dfs 
+		on dfs.k_form = dff.k_form
+	inner join prod_wh.dim_enrollment de 
+		on de.k_user = dfs.k_user 
+	inner join prod_wh.dim_course dc 
+		on dc.k_course  = de.k_course 
+	inner join prod_wh.dim_user du 
+		on du.k_user = de.k_user 
+
+
+where (dff.k_form = 423656 or dff.k_form = 423530)
+
+---fitler so that we're only capturing data from the last 30 days 
+and dfs.submitted_at > (current_date -30 )),
+
+
+
+---- aggregate number of check ins and students by course ---
+
+aggregate_counts as (select svi.k_course, 
+count(svi.k_user) as "number_of_students",
+string_agg(svi.first_name ,', ') as "names_of_students",
+string_agg(concat(adv.first_name,' ', adv.last_initial) ,', ') as "names_of_students_advised",
+count(case when adv.k_form = 423656 then adv.k_user else null end) as "pd_advising_count",
+count(case when adv.k_form = 423530 then adv.k_user else null end) as "pre_conference_count"
+
+from student_view svi 
+	left join advising_data adv 
+		 on adv.k_user = svi.k_user
+	inner join program_director_view pdv 
+		on pdv.k_course = svi.k_course
+	
+group by svi.k_course)
+
+
+
+---- final query for alerts ---
+
+select aco.k_course, 
+case when aco.pd_advising_count = 0 then 'It looks like you have not taken notes on your advising conversations with your students just yet. You can take notes on your conversations with you students in the advising notes tool by clicking students names on the dashboard here' 
+when aco.pd_advising_count > 0 then concat('Good job advising with ', aco.pd_advising_count, ' students in the last 30 days. You can check out the notes you took on their conversation on the dashboard here')
+else null end as "advising_alert",
+'https://onegoal.instructure.com/courses/517/pages/advising-notes' as "advising_url"
+
+from aggregate_counts aco 
