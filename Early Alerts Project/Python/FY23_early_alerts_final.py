@@ -9,7 +9,8 @@ from google.oauth2.service_account import Credentials
 
 
 #Open file with credentials for postgres database
-credentials = open(r'c:\Users\Sam Koenig\Logins\param_dic.txt',"r")
+#INSERT PATH TO CREDENTIALS INFORMATION#
+credentials = open(r'**',"r")
 
 contents = credentials.read()
 param_dic = ast.literal_eval(contents)
@@ -20,12 +21,14 @@ credentials.close()
 #Define scopes to push to google
 scopes = ['https://www.googleapis.com/auth/spreadsheets','https://www.googleapis.com/auth/drive']
 
-##CLIENT_SECRET_FILE = '/Users/Sam Koenig/.gdrive_private/noble_truck.json'
+## INSERT PATH TO CLIENT SECRET FILE
+##CLIENT_SECRET_FILE = '**'
 ##API_SERVICE_NAME = 'sheets'
 API_VERSION = 'v4'
 
 #Define and authorize credentials for pushing to google sheet
-credentials = Credentials.from_service_account_file('/Users/Sam Koenig/.gdrive_private/noble_truck.json', scopes = scopes)
+INSERT CREDENTIALS TO NOBLE TRUCK FILE
+credentials = Credentials.from_service_account_file('***', scopes = scopes)
 
 gc = gspread.authorize(credentials)
 
