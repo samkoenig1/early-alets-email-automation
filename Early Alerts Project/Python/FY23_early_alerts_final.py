@@ -74,21 +74,22 @@ conn = connect(param_dic)
 
 #START Advisng alerts here #
 advising_column_names = ["k_course", "advising_alert","advising_url"]
-advising_alert_file = open(r"C:\Users\Sam Koenig\Desktop\Projects\Early Alerts Project\SQL\FY23_advising_alert.txt","r")
+advising_alert_file = open(r"***","r")
 advising_alert_file = advising_alert_file.read()
 advising_alert_file = postgresql_to_dataframe(conn, advising_alert_file, advising_column_names)
 
 
 #Start Milestone Alert Here#
+##INSERT PATH TO MILESTONES SQL QUERY###
 milestone_column_names = ["k_course", "cohort_year","course_type","milestone_name","milestone_lesson_url","milestone_instructions", "milestone_alert", "milestone_url"]
-milestone_alert_file = open(r"C:\Users\Sam Koenig\Desktop\Projects\Early Alerts Project\SQL\FY23_milestone_alerts.txt","r")
+milestone_alert_file = open(r"***","r")
 milestone_alert_file = milestone_alert_file.read()
 milestone_alert_file = postgresql_to_dataframe(conn, milestone_alert_file, milestone_column_names)
 
 
 #Formatted email file load
 column_names = ["k_course","date", "pd_email","sd_email", "subject","pd_name","intro_note", "test12","test12","test","test1", "test2", "test3","test4","closing note","key"]
-email_file = open(r"C:\Users\Sam Koenig\Desktop\Projects\Early Alerts Project\SQL\formatted_email.txt","r")
+email_file = open(r"***","r")
 formatted_file = email_file.read()
 formatted_df = postgresql_to_dataframe(conn, formatted_file, column_names)
 
